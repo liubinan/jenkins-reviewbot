@@ -40,16 +40,24 @@ import java.util.Collection;
 public class RevieboardPollingBuilder extends Builder {
 
   private final String reviewbotJobName;
+  private final String respository;
   private final String checkBackPeriod;
 
   @DataBoundConstructor
-  public RevieboardPollingBuilder(String reviewbotJobName, String checkBackPeriod) {
+  public RevieboardPollingBuilder(String reviewbotJobName,
+		  String respository,
+		  String checkBackPeriod) {
     this.reviewbotJobName = reviewbotJobName;
+    this.respository = respository;
     this.checkBackPeriod = checkBackPeriod;
   }
 
   public String getReviewbotJobName() {
     return reviewbotJobName;
+  }
+  
+  public String getRespository() {
+	  return respository;
   }
 
   public String getCheckBackPeriod() {
@@ -65,7 +73,7 @@ public class RevieboardPollingBuilder extends Builder {
     ReviewboardConnection con = new ReviewboardConnection(d.getReviewboardURL(),
                                                           d.getReviewboardUsername(), d.getReviewboardPassword());
     try {
-      Collection<String> reviews = con.getPendingReviews(period);
+      Collection<String> reviews = con.getPendingReviews(period, respository);
       listener.getLogger().println("Got " + reviews.size() + " reviews");
       if (reviews.isEmpty()) return true;
       Cause cause = new Cause.UpstreamCause(build); //TODO not sure what should be put here

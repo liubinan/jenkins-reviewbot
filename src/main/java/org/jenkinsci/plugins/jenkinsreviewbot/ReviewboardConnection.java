@@ -198,9 +198,9 @@ public class ReviewboardConnection {
     return branch == null || branch.isEmpty() ? "master" : branch;
   }
 
-  Collection<String> getPendingReviews(long periodInHours) throws IOException, JAXBException, ParseException {
+  Collection<String> getPendingReviews(long periodInHours, String respository) throws IOException, JAXBException, ParseException {
     ensureAuthentication();
-    ReviewsResponse response = unmarshalResponse(getRequestsUrl(), ReviewsResponse.class);
+    ReviewsResponse response = unmarshalResponse(getRequestsUrl(respository), ReviewsResponse.class);
     List<ReviewItem> list = response.requests.array;
     if (list == null || list.isEmpty()) return Collections.emptyList();
     Collections.sort(list, Collections.reverseOrder());
@@ -226,12 +226,29 @@ public class ReviewboardConnection {
     http.executeMethod(requests);
     return requests.getResponseBodyAsStream();
   }
+  
+  private long getRespositoryId(String respository) throws IOException {
+	ensureAuthentication();
+	String repo_url = reviewboardURL + "api/repositories/" + "?max-results=1000";
+	RespositoriesResponse response = unmarshalResponse(repo_url, RespositoriesResponse.class);
+    List<RespositoryItem> list = response.respositories.array;
+    if (list == null || list.isEmpty())
+    	throw new RuntimeException("can't get respositories list from reviewboard server");
+    for (Iterator iterator = list.iterator(); iterator.hasNext();) {
+		RespositoryItem respositoryItem = (RespositoryItem) iterator.next();
+		if (respositoryItem.name == respository) {
+			return respositoryItem.id;
+		}
+	}
+	throw new RuntimeException("can't find respository(" + respository + ") from reviewboard server");
+  }
 
-  private String getRequestsUrl() {
+  private String getRequestsUrl(String respository) throws IOException {
     //e.g. https://reviewboard.eng.vmware.com/api/review-requests/?to-users=...
     StringBuilder sb = new StringBuilder(128);
     sb.append(reviewboardURL).append("api/review-requests/");
-    sb.append('?').append("to-users=").append(reviewboardUsername);
+    sb.append('?').append("repository=").append(getRespositoryId(respository));
+    //sb.append('?').append("to-users=").append(reviewboardUsername);
     sb.append('&').append("status=pending");
     sb.append('&').append("max-results=200");
     return sb.toString();
@@ -281,6 +298,35 @@ public class ReviewboardConnection {
     }
   }
 
+  @XmlRootElement(name = "rsp")
+  public static class RespositoriesResponse {
+    @XmlElement(name = "repositories")
+    Respositories respositories;
+    @XmlElement(name = "total_results")
+    String total;
+    @XmlElement
+    String stat;
+  }
+  public static class Respositories {
+    @XmlElementWrapper
+    @XmlElement(name = "item")
+    List<RespositoryItem> array;
+  }
+  public static class RespositoryItem implements Comparable<RespositoryItem> {
+    @XmlElement
+    String name;
+    @XmlElement
+    long id;
+
+    public int compareTo(RespositoryItem o) {
+      try {
+        return name.compareTo(o.name);
+      } catch (Exception e) {
+        return -1;
+      }
+    }
+  }
+  
   @XmlRootElement(name = "rsp")
   public static class ReviewRequest {
     @XmlElement(name = "review_request")
